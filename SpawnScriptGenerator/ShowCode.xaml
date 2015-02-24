@@ -1,4 +1,4 @@
-﻿<Window x:Name="window" x:Class="SpawnScriptGenerator.ShowCode"
+﻿<Window x:Name="Window" x:Class="SpawnScriptGenerator.ShowCode"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Copy and Paste Scriptcode" Height="255" Width="550" MinWidth="550">
@@ -14,9 +14,9 @@
                 <ColumnDefinition Width="1*"/>
             </Grid.ColumnDefinitions>
 
-            <TextBox x:Name="txtInitScriptCode" Margin="10,40,10,1" Text="Script Code should be here?!" IsReadOnly="True"/>
-            <TextBox x:Name="txtDescriptionScriptCode" Margin="10,40,10,1" Text="Script Code should be here?!" IsReadOnly="True" Grid.Column="1"/>
-            <Label Content="Copy this code into init.sqf:" HorizontalAlignment="Left" Margin="10,10,0,0" VerticalAlignment="Top"/>
+            <TextBox x:Name="TxtInitScriptCode" Margin="10,40,10,1" Text="Script Code should be here?!" IsReadOnly="True"/>
+            <TextBox x:Name="TxtDescriptionScriptCode" Margin="10,40,10,1" Text="Script Code should be here?!" IsReadOnly="True" Grid.Column="1"/>
+            <Label Grid.Column="0" Content="Copy this code into init.sqf:" HorizontalAlignment="Left" Margin="10,10,0,0" VerticalAlignment="Top"/>
             <Label Content="Copy or merge this code into description.ext:" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10,10,0,0" Grid.Column="1"/>
         </Grid>
         <Grid Grid.Row="1">

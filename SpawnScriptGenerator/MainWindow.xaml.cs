@@ -1,17 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 using SQMImportExport.Common;
 using SQMImportExport.Import;
 using System.IO;
@@ -21,58 +13,55 @@ namespace SpawnScriptGenerator
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
-    public partial class MainWindow : Window
+    public partial class MainWindow
     {
-        private FileContainer sqmFile;
-        private FileContainer sqfFile;
-        private List<string> unitsTypeMan;
-        private string eastHQ = "_east";
-        private string westHQ = "_west";
-        private string indHQ = "_guer";
-        private string civHQ = "_civ";
+        private FileContainer _sqmFile;
+        private FileContainer _sqfFile;
+        private readonly List<string> _unitsTypeMan;
+        private const string EastHq = "_east";
+        private const string WestHq = "_west";
+        private const string IndHq = "_guer";
+        private const string CivHq = "_civ";
 
         public MainWindow()
         {
             InitializeComponent();
 
             if (File.Exists("configUnitMan.txt"))
-                unitsTypeMan = loadExclFile("configUnitMan.txt");
+                _unitsTypeMan = LoadExclFile("configUnitMan.txt");
             else
                 MessageBox.Show("Could not load unit type list!\nThis might result into errors in the script!", "Error loading file");
         }
 
         private void btnSQMFile_Click(object sender, RoutedEventArgs e)
         {
-            FileContainer file = openDialog("mission", ".sqm", "SQM Datein (*.sqm)|*.sqm");
-            sqmFile = file;
+            var file = OpenDialog("mission", ".sqm", "SQM Datein (*.sqm)|*.sqm");
+            _sqmFile = file;
             if (file != null)
-                txtSQMFile.Text = file.ToString();
+                TxtSqmFile.Text = file.ToString();
         }
 
         private void btnSQFFile_Click(object sender, RoutedEventArgs e)
         {
-            FileContainer file = saveDialog("script", ".sqf", "SQF Datei (*.sqf)|*.sqf|Text Datei (*.txt)|*.txt|All files (*.*)|*.*");
-            sqfFile = file;
+            var file = SaveDialog("script", ".sqf", "SQF Datei (*.sqf)|*.sqf|Text Datei (*.txt)|*.txt|All files (*.*)|*.*");
+            _sqfFile = file;
             if (file != null)
-                txtSQFFile.Text = file.ToString();         
+                TxtSqfFile.Text = file.ToString();         
         }
 
         private void btnCreateScript_Click(object sender, RoutedEventArgs e)
         {
-            if (!checkFiles())
+            if (!CheckFiles())
                 return;
 
-            SqmContentsBase sqmContents;
-            StringBuilder scriptCode = new StringBuilder();
-            DateTime sTime, eTime;
+            var scriptCode = new StringBuilder();
+            var sTime = DateTime.Now;
 
-            sTime = DateTime.Now;
-
-            sqmContents = loadSQMFile(sqmFile.ToString());
+            var sqmContents = LoadSqmFile();
             if (sqmContents == null)
                 return;
 
-            string fileVersionString = "Arma 3";
+            const string fileVersionString = "Arma 3";
 
             if (sqmContents.Version == 11)
             {
@@ -80,72 +69,69 @@ namespace SpawnScriptGenerator
                 return;
             }
 
-            scriptCode.Append(generateSQFHeader(sqmFile.ToString(), sqmContents.Version.ToString(), fileVersionString, (bool)!chkExlComments.IsChecked));
-            scriptCode.Append(generateSQFUnits(sqmContents, (bool)chkOpfor.IsChecked, (bool)chkBlufor.IsChecked, (bool)chkIndependent.IsChecked, (bool)chkCivilian.IsChecked, (bool)chkExlPlayer.IsChecked, (bool)chkExlPlayable.IsChecked, (bool)!chkExlComments.IsChecked));
+            scriptCode.Append(GenerateSqfHeader(_sqmFile.ToString(), sqmContents.Version.ToString(), fileVersionString, (bool)!ChkExlComments.IsChecked));
+            scriptCode.Append(generateSQFUnits(sqmContents, ChkOpfor.IsChecked != null && (bool)ChkOpfor.IsChecked, ChkBlufor.IsChecked != null && (bool)ChkBlufor.IsChecked, ChkIndependent.IsChecked != null && (bool)ChkIndependent.IsChecked, ChkCivilian.IsChecked != null && (bool)ChkCivilian.IsChecked, ChkExlPlayer.IsChecked != null && (bool)ChkExlPlayer.IsChecked, ChkExlPlayable.IsChecked != null && (bool)ChkExlPlayable.IsChecked, (bool)!ChkExlComments.IsChecked));
 
-            saveFile(sqfFile.ToString(), scriptCode.ToString());
+            SaveFile(_sqfFile.ToString(), scriptCode.ToString());
 
-            eTime = DateTime.Now;
-            this.Title = "SQM Scriptifyer - Finished in: " + (eTime - sTime).TotalSeconds.ToString();
+            var eTime = DateTime.Now;
+            Title = "SQM Scriptifyer - Finished in: " + (eTime - sTime).TotalSeconds.ToString(CultureInfo.InvariantCulture);
         }
 
         private void btnCreateInitFiles_Click(object sender, RoutedEventArgs e)
         {
-            if (!checkFiles())
+            if (!CheckFiles())
                 return;
 
-            string scriptCode = "";
+            var scriptCode = "if !(hasInterface or isServer) then\n"
+                                + "{\n"
+                                + "\tHeadlessVariable = true;\n"
+                                + "\tpublicVariable \"HeadlessVariable\";\n"
+                                + "\texecVM \"" + _sqfFile.FileName + "\";\n"
+                                + "};";
 
-            scriptCode = "if !(hasInterface or isServer) then\n"
-                            + "{\n"
-                            + "\tHeadlessVariable = true;\n"
-                            + "\tpublicVariable \"HeadlessVariable\";\n"
-                            + "\texecVM \"" + sqfFile.fileName + "\";\n"
-                            + "};";
+            var initHcFile = new FileContainer(_sqfFile.FileName, _sqfFile.FilePath) {FileName = "initHC.sqf"};
 
-            FileContainer initHCFile = new FileContainer(sqfFile.fileName, sqfFile.filePath);
-            initHCFile.fileName = "initHC.sqf";
+            SaveFile(initHcFile.ToString(), scriptCode);
 
-            saveFile(initHCFile.ToString(), scriptCode);
-
-            string initCode = "if (isServer) then\n"
+            var initCode = "if (isServer) then\n"
                             + "{\n"
                             + "\tif (isNil \"HeadlessVariable\") then\n"
                             + "\t{\n"
-                            + "\t\texecVM \"" +sqfFile.fileName + "\";\n"
+                            + "\t\texecVM \"" +_sqfFile.FileName + "\";\n"
                             + "\t};\n"
                             + "};";
 
-            string descriptionCode = "class CfgFunctions\n"
-                                        + "{\n"
-                                        + "\tclass myTag\n"
-                                        + "\t{\n"
-                                        + "\t\tclass myCategory\n"
-                                        + "\t\t{\n"
-                                        + "\t\t\tclass myFunction\n"
-                                        + "\t\t\t{\n"
-                                        + "\t\t\t\tpostInit = 1;\n"
-                                        + "\t\t\t\tfile = \"initHC.sqf\";\n"
-                                        + "\t\t\t};\n"
-                                        + "\t\t};\n"
-                                        + "\t};\n"
-                                        + "};\n";
+            const string descriptionCode = "class CfgFunctions\n"
+                                           + "{\n"
+                                           + "\tclass myTag\n"
+                                           + "\t{\n"
+                                           + "\t\tclass myCategory\n"
+                                           + "\t\t{\n"
+                                           + "\t\t\tclass myFunction\n"
+                                           + "\t\t\t{\n"
+                                           + "\t\t\t\tpostInit = 1;\n"
+                                           + "\t\t\t\tfile = \"initHC.sqf\";\n"
+                                           + "\t\t\t};\n"
+                                           + "\t\t};\n"
+                                           + "\t};\n"
+                                           + "};\n";
 
-            ShowCode sc = new ShowCode(initCode, descriptionCode);
+            var sc = new ShowCode(initCode, descriptionCode);
             sc.Show();
         }
 
-        private bool checkFiles()
+        private bool CheckFiles()
         {
-            bool result = true;
+            var result = true;
 
-            if (sqmFile == null || sqmFile.ToString() == "")
+            if (_sqmFile == null || _sqmFile.ToString() == "")
             {
                 MessageBox.Show("Please specify the Source Mission file (.sqm)", "No mission file specified");
                 result = false;
             }
 
-            if (sqfFile == null || sqfFile.ToString() == "")
+            if (_sqfFile == null || _sqfFile.ToString() == "")
             {
                 MessageBox.Show("Please specify the spawn script file (.sqf)", "No spawn script file specified");
                 result = false;
@@ -154,9 +140,9 @@ namespace SpawnScriptGenerator
             return result;
         }
 
-        private string generateSQFHeader(string sourceFilePath, string fileVersionNum, string fileVersionString, bool comments)
+        private static string GenerateSqfHeader(string sourceFilePath, string fileVersionNum, string fileVersionString, bool comments)
         {
-            StringBuilder code = new StringBuilder();
+            var code = new StringBuilder();
 
             code.Append("/*\n");
             code.Append(" * Created with HCSQMtoSQF Converter\n");
@@ -167,17 +153,17 @@ namespace SpawnScriptGenerator
             code.Append(" */\n\n");
             if (comments)
             {
-                code.Append(westHQ + " = createCenter west;\t\t\t\t// BLUFOR (NATO)\n");
-                code.Append(eastHQ + " = createCenter east;\t\t\t\t// OPFOR (CSAT)\n");
-                code.Append(indHQ + " = createCenter resistance;\t\t// Independent (AAF)\n");
-                code.Append(civHQ + "  = createCenter civilian;\t\t\t// Civilians\n\n\n");
+                code.Append(WestHq + " = createCenter west;\t\t\t\t// BLUFOR (NATO)\n");
+                code.Append(EastHq + " = createCenter east;\t\t\t\t// OPFOR (CSAT)\n");
+                code.Append(IndHq + " = createCenter resistance;\t\t// Independent (AAF)\n");
+                code.Append(CivHq + "  = createCenter civilian;\t\t\t// Civilians\n\n\n");
             }
             else
             {
-                code.Append(westHQ + " = createCenter west;\n");
-                code.Append(eastHQ + " = createCenter east;\n");
-                code.Append(indHQ + " = createCenter resistance;\n");
-                code.Append(civHQ + "  = createCenter civilian;\n\n\n");
+                code.Append(WestHq + " = createCenter west;\n");
+                code.Append(EastHq + " = createCenter east;\n");
+                code.Append(IndHq + " = createCenter resistance;\n");
+                code.Append(CivHq + "  = createCenter civilian;\n\n\n");
             }            
 
             return code.ToString();
@@ -191,24 +177,23 @@ namespace SpawnScriptGenerator
                       + " * UNITS & GROUPS *\n"
                       + " ******************/\n\n";
 
-            List<SQMImportExport.ArmA3.Vehicle> groups = (List<SQMImportExport.ArmA3.Vehicle>)sqm.Mission.Groups;
+            var groups = (List<SQMImportExport.ArmA3.Vehicle>)sqm.Mission.Groups;
 
-            for (int i = 0; i < groups.Count; i++)
+            for (var i = 0; i < groups.Count; i++)
             {
-                List<SQMImportExport.ArmA3.Vehicle> content = (List<SQMImportExport.ArmA3.Vehicle>)groups[i].Vehicles;
-                StringBuilder code = new StringBuilder();
-                string groupName = "";
+                var content = (List<SQMImportExport.ArmA3.Vehicle>)groups[i].Vehicles;
+                var code = new StringBuilder();
 
-                groupName = "_group_" + groups[i].Side.ToLower() + "_" + (i + 1).ToString();
+                var groupName = "_group_" + groups[i].Side.ToLower() + "_" + (i + 1);
 
                 if (comments)
                     code.Append("// Begin of Group " + groupName + "\n");
                 
                 code.Append(groupName + " = createGroup _" + groups[i].Side.ToLower() + ";\n");
 
-                for (int j = 0; j < content.Count; j++)
+                for (var j = 0; j < content.Count; j++)
                 {
-                    string unitName = groupName + "_unit_" + (j + 1).ToString();
+                    var unitName = groupName + "_unit_" + (j + 1);
 
                     if (exclPlayer && content[j].Player == "PLAYER COMMANDER")
                     {
@@ -227,13 +212,13 @@ namespace SpawnScriptGenerator
 
                         code.Append("\t" + "if (true) then\n\t{\n");
 
-                        if (unitsTypeMan.Any(s => s.Equals(content[j].VehicleName, StringComparison.OrdinalIgnoreCase)))
+                        if (_unitsTypeMan.Any(s => s.Equals(content[j].VehicleName, StringComparison.OrdinalIgnoreCase)))
                         {
-                            code.Append("\t\t" + unitName + " = " + groupName + " createUnit [\"" + content[j].VehicleName + "\", [" + content[j].Position.X.ToString().Replace(',', '.') + ", " + content[j].Position.Y.ToString().Replace(',', '.') + ", " + (content[j].OffsetY ?? 0).ToString().Replace(',', '.') + "], [], " + (content[j].Placement ?? 0).ToString() + ", \"" + (content[j].Special ?? "CAN_COLLIDE") + "\"];\n");
+                            code.Append("\t\t" + unitName + " = " + groupName + " createUnit [\"" + content[j].VehicleName + "\", [" + content[j].Position.X.ToString(CultureInfo.InvariantCulture).Replace(',', '.') + ", " + content[j].Position.Y.ToString(CultureInfo.InvariantCulture).Replace(',', '.') + ", " + (content[j].OffsetY ?? 0).ToString(CultureInfo.InvariantCulture).Replace(',', '.') + "], [], " + (content[j].Placement ?? 0) + ", \"" + (content[j].Special ?? "CAN_COLLIDE") + "\"];\n");
                         }
                         else
                         {
-                            code.Append("\t\t" + unitName + " = createVehicle [\"" + content[j].VehicleName + "\"" + ", [" + content[j].Position.X.ToString().Replace(',', '.') + ", " + content[j].Position.Y.ToString().Replace(',', '.') + ", " + (content[j].OffsetY ?? 0).ToString().Replace(',', '.') + "], [], " + (content[j].Placement ?? 0).ToString() + ", \"" + (content[j].Special ?? "CAN_COLLIDE") + "\"];\n");
+                            code.Append("\t\t" + unitName + " = createVehicle [\"" + content[j].VehicleName + "\"" + ", [" + content[j].Position.X.ToString(CultureInfo.InvariantCulture).Replace(',', '.') + ", " + content[j].Position.Y.ToString(CultureInfo.InvariantCulture).Replace(',', '.') + ", " + (content[j].OffsetY ?? 0).ToString(CultureInfo.InvariantCulture).Replace(',', '.') + "], [], " + (content[j].Placement ?? 0) + ", \"" + (content[j].Special ?? "CAN_COLLIDE") + "\"];\n");
                             code.Append("\t\t" + "createVehicleCrew " + unitName + ";\n");
                             code.Append("\t\t" + "[" + unitName + "] joinSilent " + groupName + ";\n");
                         }
@@ -242,11 +227,11 @@ namespace SpawnScriptGenerator
                             code.Append("\t\t" + unitName + " setDir " + content[j].Azimut.ToString().Replace(',', '.') + ";\n");
                         if (content[j].Skill.HasValue)
                             code.Append("\t\t" + unitName + " setUnitAbility " + content[j].Skill.ToString().Replace(',', '.') + ";\n");
-                        if (content[j].Rank != null && content[j].Rank != "")
+                        if (!string.IsNullOrEmpty(content[j].Rank))
                             code.Append("\t\t" + unitName + " setRank \"" + content[j].Rank + "\";\n");
                         if (content[j].Health.HasValue)
                             code.Append("\t\t" + unitName + " setDamage " + (1 - content[j].Health).ToString().Replace(',', '.') + ";\n");
-                        if (content[j].Text != null && content[j].Text != "")
+                        if (!string.IsNullOrEmpty(content[j].Text))
                             code.Append("\t\t" + unitName + " setVehicleVarName \"" + content[j].Text + "\";\n");
                         if (content[j].Leader.HasValue)
                             code.Append("\t\t" + groupName + " selectLeader " + unitName + ";\n");
@@ -261,17 +246,17 @@ namespace SpawnScriptGenerator
                 if (groups[i].Waypoints.Count > 0)
                 {
                     code.Append("\t" + "// Waypoints for " + groupName + "\n");
-                    for (int k = 0; k < groups[i].Waypoints.Count; k++)
+                    for (var k = 0; k < groups[i].Waypoints.Count; k++)
                     {
-                        code.Append("\t" + "// Waypoint #" + (k + 1).ToString() + "\n");
-                        code.Append("\t" + "_wp = " + groupName + " addWaypoint[[" + groups[i].Waypoints[k].Position.X.ToString().Replace(',', '.') + ", " + groups[i].Waypoints[k].Position.Y.ToString().Replace(',', '.') + ", 0], " + (groups[i].Waypoints[k].Placement ?? 0).ToString() + ", " + (k + 1).ToString() + "];\n");
-                        code.Append("\t" + "[" + groupName + ", " + (k + 1).ToString() + "] setWaypointBehaviour \"" + (groups[i].Waypoints[k].Combat ?? "UNCHANGED").ToUpper() + "\";\n");
-                        code.Append("\t" + "[" + groupName + ", " + (k + 1).ToString() + "] setWaypointCombatMode \"" + (groups[i].Waypoints[k].CombatMode ?? "NO CHANGE").ToUpper() + "\";\n");
-                        code.Append("\t" + "[" + groupName + ", " + (k + 1).ToString() + "] setWaypointCompletionRadius " + (groups[i].Waypoints[k].CompletitionRadius ?? 0).ToString() + ";\n");
-                        code.Append("\t" + "[" + groupName + ", " + (k + 1).ToString() + "] setWaypointFormation \"" + (groups[i].Waypoints[k].Formation ?? "NO CHANGE").ToUpper() + "\";\n");
-                        code.Append("\t" + "[" + groupName + ", " + (k + 1).ToString() + "] setWaypointSpeed \"" + (groups[i].Waypoints[k].Speed ?? "UNCHANGED").ToUpper() + "\";\n");
-                        code.Append("\t" + "[" + groupName + ", " + (k + 1).ToString() + "] setWaypointStatements [\"true\", \"\"];\n");
-                        code.Append("\t" + "[" + groupName + ", " + (k + 1).ToString() + "] setWaypointType \"" + (groups[i].Waypoints[k].Type ?? "MOVE").ToUpper() + "\";\n");
+                        code.Append("\t" + "// Waypoint #" + (k + 1) + "\n");
+                        code.Append("\t" + "_wp = " + groupName + " addWaypoint[[" + groups[i].Waypoints[k].Position.X.ToString(CultureInfo.InvariantCulture).Replace(',', '.') + ", " + groups[i].Waypoints[k].Position.Y.ToString(CultureInfo.InvariantCulture).Replace(',', '.') + ", 0], " + (groups[i].Waypoints[k].Placement ?? 0) + ", " + (k + 1) + "];\n");
+                        code.Append("\t" + "[" + groupName + ", " + (k + 1) + "] setWaypointBehaviour \"" + (groups[i].Waypoints[k].Combat ?? "UNCHANGED").ToUpper() + "\";\n");
+                        code.Append("\t" + "[" + groupName + ", " + (k + 1) + "] setWaypointCombatMode \"" + (groups[i].Waypoints[k].CombatMode ?? "NO CHANGE").ToUpper() + "\";\n");
+                        code.Append("\t" + "[" + groupName + ", " + (k + 1) + "] setWaypointCompletionRadius " + (groups[i].Waypoints[k].CompletitionRadius ?? 0) + ";\n");
+                        code.Append("\t" + "[" + groupName + ", " + (k + 1) + "] setWaypointFormation \"" + (groups[i].Waypoints[k].Formation ?? "NO CHANGE").ToUpper() + "\";\n");
+                        code.Append("\t" + "[" + groupName + ", " + (k + 1) + "] setWaypointSpeed \"" + (groups[i].Waypoints[k].Speed ?? "UNCHANGED").ToUpper() + "\";\n");
+                        code.Append("\t" + "[" + groupName + ", " + (k + 1) + "] setWaypointStatements [\"true\", \"\"];\n");
+                        code.Append("\t" + "[" + groupName + ", " + (k + 1) + "] setWaypointType \"" + (groups[i].Waypoints[k].Type ?? "MOVE").ToUpper() + "\";\n");
                     }
                 }
 
@@ -312,11 +297,11 @@ namespace SpawnScriptGenerator
             return result;
         }
 
-        private void saveFile(string filePath, string content)
+        private static void SaveFile(string filePath, string content)
         {
             try
             {
-                StreamWriter sw = new StreamWriter(filePath);
+                var sw = new StreamWriter(filePath);
 
                 sw.Write(content);
 
@@ -325,64 +310,61 @@ namespace SpawnScriptGenerator
             catch (Exception ex)
             {
                 MessageBox.Show(ex.Message, "Error writing file!");
-                return;
             }            
         }
 
-        private FileContainer openDialog(string filename = "mission", string extension = ".txt", string filter = "Text Datei (*.txt)|*txt")
+        private static FileContainer OpenDialog(string filename = "mission", string extension = ".txt", string filter = "Text Datei (*.txt)|*txt")
         {
-            Microsoft.Win32.OpenFileDialog ofd = new Microsoft.Win32.OpenFileDialog();
-            ofd.FileName = filename;
-            ofd.DefaultExt = extension;
-            ofd.Filter = filter;
+            var ofd = new Microsoft.Win32.OpenFileDialog
+            {
+                FileName = filename,
+                DefaultExt = extension,
+                Filter = filter
+            };
 
-            bool? result = ofd.ShowDialog();
+            var result = ofd.ShowDialog();
 
-            if (result == true)
-                return new FileContainer(ofd.SafeFileName, ofd.FileName.Replace(ofd.SafeFileName, ""));
-            else
-                return null;
+            return result == true ? new FileContainer(ofd.SafeFileName, ofd.FileName.Replace(ofd.SafeFileName, "")) : null;
         }
 
-        private FileContainer saveDialog(string filename = "script", string extension = ".txt", string filter = "Text Datei (*.txt)|*.txt")
+        private static FileContainer SaveDialog(string filename = "script", string extension = ".txt", string filter = "Text Datei (*.txt)|*.txt")
         {
-            Microsoft.Win32.SaveFileDialog sfd = new Microsoft.Win32.SaveFileDialog();
-            sfd.FileName = filename;
-            sfd.DefaultExt = extension;
-            sfd.Filter = filter;
+            var sfd = new Microsoft.Win32.SaveFileDialog
+            {
+                FileName = filename,
+                DefaultExt = extension,
+                Filter = filter
+            };
 
-            bool? result = sfd.ShowDialog();
+            var result = sfd.ShowDialog();
 
-            if (result == true)
-                return new FileContainer(sfd.SafeFileName, sfd.FileName.Replace(sfd.SafeFileName, ""));
-            else 
-                return null;
+            return result == true ? new FileContainer(sfd.SafeFileName, sfd.FileName.Replace(sfd.SafeFileName, "")) : null;
         }
 
-        private SqmContentsBase loadSQMFile(string path)
+        private SqmContentsBase LoadSqmFile()
         {
             try
             {
-                using (FileStream importStream = new FileStream(sqmFile.ToString(), FileMode.Open))
+                using (var importStream = new FileStream(_sqmFile.ToString(), FileMode.Open))
                 {
-                    SqmImporter imp = new SqmImporter();
-                    SqmContentsBase sqmContents = imp.Import(importStream);
+                    var imp = new SqmImporter();
+                    var sqmContents = imp.Import(importStream);
                     return sqmContents;
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.InnerException.Message.ToString());
+                MessageBox.Show(ex.InnerException.Message);
                 return null;
             }
         }
 
-        private List<string> loadExclFile(string path)
+        private static List<string> LoadExclFile(string path)
         {
-            List<string> l = new List<string>();
+            var l = new List<string>();
             try
             {
-                StreamReader sr = new StreamReader(path);
+                var sr = new StreamReader(path);
             
                 while(!sr.EndOfStream)
                 {
