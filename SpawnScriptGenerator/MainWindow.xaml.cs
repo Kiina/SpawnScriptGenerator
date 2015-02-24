@@ -220,7 +220,7 @@ namespace SpawnScriptGenerator
                         {
                             code.Append("\t\t" + unitName + " = createVehicle [\"" + content[j].VehicleName + "\"" + ", [" + content[j].Position.X.ToString(CultureInfo.InvariantCulture).Replace(',', '.') + ", " + content[j].Position.Y.ToString(CultureInfo.InvariantCulture).Replace(',', '.') + ", " + (content[j].OffsetY ?? 0).ToString(CultureInfo.InvariantCulture).Replace(',', '.') + "], [], " + (content[j].Placement ?? 0) + ", \"" + (content[j].Special ?? "CAN_COLLIDE") + "\"];\n");
                             code.Append("\t\t" + "createVehicleCrew " + unitName + ";\n");
-                            code.Append("\t\t" + "[" + unitName + "] joinSilent " + groupName + ";\n");
+                            code.Append("\t\t" + "(crew " + unitName + ") joinSilent " + groupName + ";\n");
                         }
 
                         if (content[j].Azimut.HasValue)
